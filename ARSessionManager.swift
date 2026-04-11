@@ -26,7 +26,7 @@ final class ARSessionManager: NSObject {
     private var graveMarkerNode: SCNNode?
 
     private var targetGrave: GraveRecord?
-    private var graveWorldPosition: SCNVector3?
+    private var graveWorldPosition: SIMD3<Float>?
     private var originCoordinate: CLLocationCoordinate2D?
 
     private let configuration: ARWorldTrackingConfiguration = {
@@ -38,7 +38,7 @@ final class ARSessionManager: NSObject {
 
     override init() {
         super.init()
-        sceneView.delegate        = self
+        sceneView.delegate         = self
         sceneView.session.delegate = self
     }
 
@@ -54,20 +54,22 @@ final class ARSessionManager: NSObject {
     func setOrigin(coordinate: CLLocationCoordinate2D) {
         guard originCoordinate == nil else { return }
         originCoordinate = coordinate
-        print("[AR] Origin: \(coordinate.latitude), \(coordinate.longitude)")
+        print("[AR] Origin set: \(coordinate.latitude), \(coordinate.longitude)")
         if let grave = targetGrave {
-            computeGraveWorldPosition(for: grave)
+            let off = worldOffset(from: coordinate, to: grave.coordinate)
+            graveWorldPosition = SIMD3<Float>(off.x, 0, off.z)
             buildGraveMarker()
-            buildArrow()
         }
     }
 
     func startNavigation(to grave: GraveRecord) {
         stopNavigation()
         targetGrave = grave
-        guard originCoordinate != nil else { return }
-        computeGraveWorldPosition(for: grave)
-        buildGraveMarker()
+        if let origin = originCoordinate {
+            let off = worldOffset(from: origin, to: grave.coordinate)
+            graveWorldPosition = SIMD3<Float>(off.x, 0, off.z)
+            buildGraveMarker()
+        }
         buildArrow()
     }
 
@@ -78,13 +80,54 @@ final class ARSessionManager: NSObject {
         targetGrave = nil
     }
 
-    private func computeGraveWorldPosition(for grave: GraveRecord) {
-        guard let origin = originCoordinate else { return }
-        let off = worldOffset(from: origin, to: grave.coordinate)
-        graveWorldPosition = SCNVector3(off.x, 0, off.z)
+    private func buildArrow() {
+        let root = SCNNode()
+        root.name = "arrowRoot"
+
+        let body = SCNBox(width: 0.18,
+                          height: 0.06,
+                          length: 0.42,
+                          chamferRadius: 0.015)
+        body.firstMaterial?.diffuse.contents  = UIColor.systemYellow
+        body.firstMaterial?.emission.contents = UIColor.systemYellow.withAlphaComponent(0.55)
+        body.firstMaterial?.lightingModel     = .phong
+        let bodyNode = SCNNode(geometry: body)
+        bodyNode.position = SCNVector3(0, 0, 0)
+
+        let head = SCNPyramid(width: 0.38,
+                              height: 0.28,
+                              length: 0.38)
+        head.firstMaterial?.diffuse.contents  = UIColor.systemYellow
+        head.firstMaterial?.emission.contents = UIColor.systemYellow.withAlphaComponent(0.65)
+        head.firstMaterial?.lightingModel     = .phong
+        let headNode = SCNNode(geometry: head)
+        headNode.eulerAngles = SCNVector3(-Float.pi / 2, 0, 0)
+        headNode.position = SCNVector3(0, 0, 0.21 + 0.14)
+
+        let shadow = SCNCylinder(radius: 0.22, height: 0.005)
+        shadow.firstMaterial?.diffuse.contents = UIColor.black.withAlphaComponent(0.25)
+        shadow.firstMaterial?.lightingModel    = .constant
+        let shadowNode = SCNNode(geometry: shadow)
+        shadowNode.position = SCNVector3(0, -0.04, 0.1)
+
+        let pulse = CABasicAnimation(keyPath: "opacity")
+        pulse.fromValue    = 1.0
+        pulse.toValue      = 0.5
+        pulse.duration     = 0.85
+        pulse.autoreverses = true
+        pulse.repeatCount  = .infinity
+        root.addAnimation(pulse, forKey: "pulse")
+
+        root.addChildNode(shadowNode)
+        root.addChildNode(bodyNode)
+        root.addChildNode(headNode)
+
+        sceneView.scene.rootNode.addChildNode(root)
+        arrowNode = root
     }
 
     private func buildGraveMarker() {
+        graveMarkerNode?.removeFromParentNode()
         guard let pos = graveWorldPosition, let grave = targetGrave else { return }
 
         let root = SCNNode()
@@ -92,21 +135,21 @@ final class ARSessionManager: NSObject {
 
         let cube = SCNBox(width: 0.4, height: 0.4, length: 0.4, chamferRadius: 0.04)
         cube.firstMaterial?.diffuse.contents  = UIColor.systemYellow
-        cube.firstMaterial?.emission.contents = UIColor.systemYellow.withAlphaComponent(0.7)
-        cube.firstMaterial?.transparency = 0.85
+        cube.firstMaterial?.emission.contents = UIColor.systemYellow.withAlphaComponent(0.6)
+        cube.firstMaterial?.transparency      = 0.85
         let cubeNode = SCNNode(geometry: cube)
         cubeNode.position = SCNVector3(0, 0.2, 0)
 
         let spin = CABasicAnimation(keyPath: "eulerAngles.y")
-        spin.fromValue    = 0
-        spin.toValue      = Float.pi * 2
-        spin.duration     = 4.0
-        spin.repeatCount  = .infinity
+        spin.fromValue   = 0
+        spin.toValue     = Float.pi * 2
+        spin.duration    = 4.0
+        spin.repeatCount = .infinity
         cubeNode.addAnimation(spin, forKey: "spin")
 
-        let beam = SCNCylinder(radius: 0.04, height: 6.0)
-        beam.firstMaterial?.diffuse.contents  = UIColor.systemYellow.withAlphaComponent(0.35)
-        beam.firstMaterial?.emission.contents = UIColor.systemYellow.withAlphaComponent(0.25)
+        let beam = SCNCylinder(radius: 0.03, height: 6.0)
+        beam.firstMaterial?.diffuse.contents  = UIColor.systemYellow.withAlphaComponent(0.3)
+        beam.firstMaterial?.emission.contents = UIColor.systemYellow.withAlphaComponent(0.2)
         beam.firstMaterial?.isDoubleSided     = true
         let beamNode = SCNNode(geometry: beam)
         beamNode.position = SCNVector3(0, 3.0, 0)
@@ -118,52 +161,39 @@ final class ARSessionManager: NSObject {
         ringNode.position = SCNVector3(0, 0.01, 0)
 
         let ringPulse = CABasicAnimation(keyPath: "geometry.pipeRadius")
-        ringPulse.fromValue   = 0.03
-        ringPulse.toValue     = 0.055
-        ringPulse.duration    = 1.2
+        ringPulse.fromValue    = 0.03
+        ringPulse.toValue      = 0.055
+        ringPulse.duration     = 1.2
         ringPulse.autoreverses = true
         ringPulse.repeatCount  = .infinity
         ringNode.addAnimation(ringPulse, forKey: "ringPulse")
 
-        let sonar = SCNTorus(ringRadius: 1.0, pipeRadius: 0.015)
-        sonar.firstMaterial?.diffuse.contents  = UIColor.white.withAlphaComponent(0.2)
-        sonar.firstMaterial?.emission.contents = UIColor.white.withAlphaComponent(0.15)
-        let sonarNode = SCNNode(geometry: sonar)
-        sonarNode.position = SCNVector3(0, 0.01, 0)
-
-        let sonarFade = CABasicAnimation(keyPath: "opacity")
-        sonarFade.fromValue   = 0.7
-        sonarFade.toValue     = 0.0
-        sonarFade.duration    = 1.8
-        sonarFade.repeatCount  = .infinity
-        sonarNode.addAnimation(sonarFade, forKey: "sonarFade")
-
-        let bg = SCNPlane(width: 1.4, height: 0.55)
-        bg.cornerRadius = 0.07
-        bg.firstMaterial?.diffuse.contents = UIColor.black.withAlphaComponent(0.7)
+        let bg = SCNPlane(width: 3.2, height: 1.2)
+        bg.cornerRadius = 0.12
+        bg.firstMaterial?.diffuse.contents = UIColor.black.withAlphaComponent(0.72)
         bg.firstMaterial?.isDoubleSided    = true
         let bgNode = SCNNode(geometry: bg)
-        bgNode.position = SCNVector3(0, 6.5, 0)
+        bgNode.position = SCNVector3(0, 7.2, 0)
 
-        let nameText = SCNText(string: grave.fullName, extrusionDepth: 0.002)
-        nameText.font = UIFont.systemFont(ofSize: 0.14, weight: .bold)
+        let nameText = SCNText(string: grave.fullName, extrusionDepth: 0.005)
+        nameText.font           = UIFont.systemFont(ofSize: 0.38, weight: .bold)
         nameText.firstMaterial?.diffuse.contents  = UIColor.white
         nameText.firstMaterial?.emission.contents = UIColor.white.withAlphaComponent(0.9)
         nameText.alignmentMode  = CATextLayerAlignmentMode.center.rawValue
-        nameText.containerFrame = CGRect(x: -0.6, y: 0.1, width: 1.2, height: 0.22)
+        nameText.containerFrame = CGRect(x: -1.4, y: 0.28, width: 2.8, height: 0.55)
         nameText.isWrapped      = true
         let nameNode = SCNNode(geometry: nameText)
-        nameNode.position = SCNVector3(-0.6, 6.35, 0.01)
+        nameNode.position = SCNVector3(-1.4, 6.85, 0.02)
 
-        let subText = SCNText(string: grave.lifespan, extrusionDepth: 0.001)
-        subText.font = UIFont.systemFont(ofSize: 0.1, weight: .regular)
+        let subText = SCNText(string: grave.lifespan, extrusionDepth: 0.003)
+        subText.font           = UIFont.systemFont(ofSize: 0.28, weight: .regular)
         subText.firstMaterial?.diffuse.contents  = UIColor.systemYellow
-        subText.firstMaterial?.emission.contents = UIColor.systemYellow.withAlphaComponent(0.8)
+        subText.firstMaterial?.emission.contents = UIColor.systemYellow.withAlphaComponent(0.85)
         subText.alignmentMode  = CATextLayerAlignmentMode.center.rawValue
-        subText.containerFrame = CGRect(x: -0.6, y: 0, width: 1.2, height: 0.18)
+        subText.containerFrame = CGRect(x: -1.4, y: 0, width: 2.8, height: 0.42)
         subText.isWrapped      = true
         let subNode = SCNNode(geometry: subText)
-        subNode.position = SCNVector3(-0.6, 6.17, 0.01)
+        subNode.position = SCNVector3(-1.4, 6.58, 0.02)
 
         let bb = SCNBillboardConstraint()
         bb.freeAxes = .Y
@@ -174,7 +204,6 @@ final class ARSessionManager: NSObject {
         root.addChildNode(cubeNode)
         root.addChildNode(beamNode)
         root.addChildNode(ringNode)
-        root.addChildNode(sonarNode)
         root.addChildNode(bgNode)
         root.addChildNode(nameNode)
         root.addChildNode(subNode)
@@ -183,79 +212,28 @@ final class ARSessionManager: NSObject {
         graveMarkerNode = root
     }
 
-    private func buildArrow() {
-        arrowNode?.removeFromParentNode()
+    private func updateArrow(cameraTransform: simd_float4x4) {
+        guard let arrow = arrowNode else { return }
 
-        let root = SCNNode()
+        let cx = cameraTransform.columns.3.x
+        let cy = cameraTransform.columns.3.y
+        let cz = cameraTransform.columns.3.z
 
-        let shaft = SCNBox(width: 0.08, height: 0.08, length: 0.45, chamferRadius: 0.01)
-        shaft.firstMaterial?.diffuse.contents  = UIColor.systemYellow
-        shaft.firstMaterial?.emission.contents = UIColor.systemYellow.withAlphaComponent(0.8)
-        let shaftNode = SCNNode(geometry: shaft)
-        shaftNode.position = SCNVector3(0, 0, -0.1)
+        let fwdX = -cameraTransform.columns.2.x
+        let fwdZ = -cameraTransform.columns.2.z
+        let fwdLen = sqrt(fwdX * fwdX + fwdZ * fwdZ)
+        let nx: Float = fwdLen > 0.001 ? fwdX / fwdLen : 0
+        let nz: Float = fwdLen > 0.001 ? fwdZ / fwdLen : -1
 
-        let head = SCNPyramid(width: 0.22, height: 0.30, length: 0.22)
-        head.firstMaterial?.diffuse.contents  = UIColor.systemYellow
-        head.firstMaterial?.emission.contents = UIColor.systemYellow.withAlphaComponent(0.9)
-        let headNode = SCNNode(geometry: head)
-        headNode.eulerAngles = SCNVector3(-Float.pi / 2, 0, 0)
-        headNode.position    = SCNVector3(0, 0, 0.28)
+        arrow.position = SCNVector3(cx + nx * 1.8,
+                                    cy - 0.25,
+                                    cz + nz * 1.8)
 
-        let tail = SCNSphere(radius: 0.06)
-        tail.firstMaterial?.diffuse.contents  = UIColor.white.withAlphaComponent(0.6)
-        tail.firstMaterial?.emission.contents = UIColor.white.withAlphaComponent(0.4)
-        let tailNode = SCNNode(geometry: tail)
-        tailNode.position = SCNVector3(0, 0, -0.325)
-
-        let pulse = CABasicAnimation(keyPath: "opacity")
-        pulse.fromValue   = 1.0
-        pulse.toValue     = 0.4
-        pulse.duration    = 0.8
-        pulse.autoreverses = true
-        pulse.repeatCount  = .infinity
-        root.addAnimation(pulse, forKey: "pulse")
-
-        root.addChildNode(shaftNode)
-        root.addChildNode(headNode)
-        root.addChildNode(tailNode)
-
-        root.position = SCNVector3(0, 1.2, 0)
-
-        sceneView.scene.rootNode.addChildNode(root)
-        arrowNode = root
-    }
-
-    private func updateArrow(frame: ARFrame) {
-        guard let arrow = arrowNode,
-              let gravePos = graveWorldPosition else { return }
-
-        let cam    = frame.camera.transform
-        let camX   = cam.columns.3.x
-        let camY   = cam.columns.3.y
-        let camZ   = cam.columns.3.z
-
-        let dx     = gravePos.x - camX
-        let dz     = gravePos.z - camZ
-        let dist   = sqrt(dx * dx + dz * dz)
-
-        if dist < 0.5 {
-            arrow.isHidden = true
-            return
+        if let gravePos = graveWorldPosition {
+            let dx = gravePos.x - arrow.position.x
+            let dz = gravePos.z - arrow.position.z
+            arrow.eulerAngles = SCNVector3(0, atan2(dx, dz), 0)
         }
-        arrow.isHidden = false
-
-        let nx = dx / dist
-        let nz = dz / dist
-
-        let offsetDist: Float = min(1.5, dist * 0.4)
-        arrow.position = SCNVector3(
-            camX + nx * offsetDist,
-            camY - 0.3,
-            camZ + nz * offsetDist
-        )
-
-        let angle = atan2(dx, dz)
-        arrow.eulerAngles = SCNVector3(0, angle, 0)
     }
 
     func worldOffset(from origin: CLLocationCoordinate2D,
@@ -269,10 +247,9 @@ final class ARSessionManager: NSObject {
 }
 
 extension ARSessionManager: ARSCNViewDelegate {
-
     func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
         guard let frame = sceneView.session.currentFrame else { return }
-        updateArrow(frame: frame)
+        updateArrow(cameraTransform: frame.camera.transform)
     }
 }
 
