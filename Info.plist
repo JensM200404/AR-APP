@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         Privacy usage descriptions
+         Required by App Store review and iOS permission dialogs.
+         The user sees these strings when the system prompt appears.
+    ════════════════════════════════════════════════════════════════════ -->
+
+    <key>NSCameraUsageDescription</key>
+    <string>AR Cemetery Navigator uses the camera to display augmented reality overlays on top of the live cemetery view.</string>
+
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Your location is used to position AR grave markers accurately and to show your position on the minimap.</string>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         ARKit capability declaration
+         Ensures the app is only available on ARKit-capable devices
+         (iPhone 6s or later with A9 chip or above).
+    ════════════════════════════════════════════════════════════════════ -->
+
+    <key>UIRequiredDeviceCapabilities</key>
+    <array>
+        <string>arkit</string>
+    </array>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         UI settings
+    ════════════════════════════════════════════════════════════════════ -->
+
+    <!-- Lock to portrait; rotating to landscape would require re-laying out the HUD -->
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+
+    <!-- Launch into a black screen while the AR camera spins up -->
+    <key>UILaunchScreen</key>
+    <dict>
+        <key>UIColorName</key>
+        <string>Black</string>
+    </dict>
+
+    <key>CFBundleName</key>
+    <string>AR Cemetery</string>
+
+    <key>CFBundleDisplayName</key>
+    <string>AR Cemetery</string>
+
+</dict>
+</plist>

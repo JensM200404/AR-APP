@@ -6,6 +6,24 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		C764CB072F891EA2005A4109 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C764CB012F891EA2005A4109 /* LocationManager.swift */; };
+		C764CB082F891EA2005A4109 /* MinimapViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C764CB022F891EA2005A4109 /* MinimapViewController.swift */; };
+		C764CB092F891EA2005A4109 /* SearchViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C764CB052F891EA2005A4109 /* SearchViewController.swift */; };
+		C764CB0A2F891EA2005A4109 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C764CB062F891EA2005A4109 /* ViewController.swift */; };
+		C764CB0B2F891EA2005A4109 /* ARCemeteryNavigatorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C764CAFB2F891EA2005A4109 /* ARCemeteryNavigatorApp.swift */; };
+		C764CB0C2F891EA2005A4109 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = C764CB032F891EA2005A4109 /* Models.swift */; };
+		C764CB0D2F891EA2005A4109 /* ARSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C764CAFC2F891EA2005A4109 /* ARSessionManager.swift */; };
+		C764CB0E2F891EA2005A4109 /* GraveDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C764CAFD2F891EA2005A4109 /* GraveDataService.swift */; };
+		C764CB0F2F891EA2005A4109 /* GraveInfoCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C764CAFE2F891EA2005A4109 /* GraveInfoCard.swift */; };
+		C764CB102F891EA2005A4109 /* graves.json in Resources */ = {isa = PBXBuildFile; fileRef = C764CAFF2F891EA2005A4109 /* graves.json */; };
+		C764CB112F891EA2005A4109 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = C764CB042F891EA2005A4109 /* README.md */; };
+		C764CB162F892281005A4109 /* ARKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C764CB152F892281005A4109 /* ARKit.framework */; };
+		C764CB182F89228C005A4109 /* SceneKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C764CB172F89228C005A4109 /* SceneKit.framework */; };
+		C764CB1A2F892293005A4109 /* MapKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C764CB192F892293005A4109 /* MapKit.framework */; };
+		C764CB1C2F89229C005A4109 /* CoreLocation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C764CB1B2F89229C005A4109 /* CoreLocation.framework */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		C764CADF2F891E49005A4109 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,31 +45,34 @@
 		C764CAD12F891E48005A4109 /* ARCemeteryNavigator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ARCemeteryNavigator.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C764CADE2F891E49005A4109 /* ARCemeteryNavigatorTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ARCemeteryNavigatorTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C764CAE82F891E49005A4109 /* ARCemeteryNavigatorUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ARCemeteryNavigatorUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C764CAFB2F891EA2005A4109 /* ARCemeteryNavigatorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARCemeteryNavigatorApp.swift; sourceTree = "<group>"; };
+		C764CAFC2F891EA2005A4109 /* ARSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARSessionManager.swift; sourceTree = "<group>"; };
+		C764CAFD2F891EA2005A4109 /* GraveDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraveDataService.swift; sourceTree = "<group>"; };
+		C764CAFE2F891EA2005A4109 /* GraveInfoCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraveInfoCard.swift; sourceTree = "<group>"; };
+		C764CAFF2F891EA2005A4109 /* graves.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = graves.json; sourceTree = "<group>"; };
+		C764CB002F891EA2005A4109 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C764CB012F891EA2005A4109 /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
+		C764CB022F891EA2005A4109 /* MinimapViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinimapViewController.swift; sourceTree = "<group>"; };
+		C764CB032F891EA2005A4109 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		C764CB042F891EA2005A4109 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		C764CB052F891EA2005A4109 /* SearchViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchViewController.swift; sourceTree = "<group>"; };
+		C764CB062F891EA2005A4109 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		C764CB132F891EAE005A4109 /* ARCemeteryNavigator-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ARCemeteryNavigator-Bridging-Header.h"; sourceTree = "<group>"; };
+		C764CB152F892281005A4109 /* ARKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ARKit.framework; path = System/Library/Frameworks/ARKit.framework; sourceTree = SDKROOT; };
+		C764CB172F89228C005A4109 /* SceneKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SceneKit.framework; path = System/Library/Frameworks/SceneKit.framework; sourceTree = SDKROOT; };
+		C764CB192F892293005A4109 /* MapKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MapKit.framework; path = System/Library/Frameworks/MapKit.framework; sourceTree = SDKROOT; };
+		C764CB1B2F89229C005A4109 /* CoreLocation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreLocation.framework; path = System/Library/Frameworks/CoreLocation.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
-
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		C764CAD32F891E48005A4109 /* ARCemeteryNavigator */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = ARCemeteryNavigator;
-			sourceTree = "<group>";
-		};
-		C764CAE12F891E49005A4109 /* ARCemeteryNavigatorTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = ARCemeteryNavigatorTests;
-			sourceTree = "<group>";
-		};
-		C764CAEB2F891E49005A4109 /* ARCemeteryNavigatorUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = ARCemeteryNavigatorUITests;
-			sourceTree = "<group>";
-		};
-/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		C764CACE2F891E47005A4109 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C764CB1C2F89229C005A4109 /* CoreLocation.framework in Frameworks */,
+				C764CB182F89228C005A4109 /* SceneKit.framework in Frameworks */,
+				C764CB1A2F892293005A4109 /* MapKit.framework in Frameworks */,
+				C764CB162F892281005A4109 /* ARKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -75,10 +96,21 @@
 		C764CAC82F891E47005A4109 = {
 			isa = PBXGroup;
 			children = (
-				C764CAD32F891E48005A4109 /* ARCemeteryNavigator */,
-				C764CAE12F891E49005A4109 /* ARCemeteryNavigatorTests */,
-				C764CAEB2F891E49005A4109 /* ARCemeteryNavigatorUITests */,
 				C764CAD22F891E48005A4109 /* Products */,
+				C764CAFB2F891EA2005A4109 /* ARCemeteryNavigatorApp.swift */,
+				C764CAFC2F891EA2005A4109 /* ARSessionManager.swift */,
+				C764CAFD2F891EA2005A4109 /* GraveDataService.swift */,
+				C764CAFE2F891EA2005A4109 /* GraveInfoCard.swift */,
+				C764CAFF2F891EA2005A4109 /* graves.json */,
+				C764CB002F891EA2005A4109 /* Info.plist */,
+				C764CB012F891EA2005A4109 /* LocationManager.swift */,
+				C764CB022F891EA2005A4109 /* MinimapViewController.swift */,
+				C764CB032F891EA2005A4109 /* Models.swift */,
+				C764CB042F891EA2005A4109 /* README.md */,
+				C764CB052F891EA2005A4109 /* SearchViewController.swift */,
+				C764CB062F891EA2005A4109 /* ViewController.swift */,
+				C764CB132F891EAE005A4109 /* ARCemeteryNavigator-Bridging-Header.h */,
+				C764CB142F892281005A4109 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -90,6 +122,17 @@
 				C764CAE82F891E49005A4109 /* ARCemeteryNavigatorUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		C764CB142F892281005A4109 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C764CB1B2F89229C005A4109 /* CoreLocation.framework */,
+				C764CB192F892293005A4109 /* MapKit.framework */,
+				C764CB172F89228C005A4109 /* SceneKit.framework */,
+				C764CB152F892281005A4109 /* ARKit.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -106,9 +149,6 @@
 			buildRules = (
 			);
 			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				C764CAD32F891E48005A4109 /* ARCemeteryNavigator */,
 			);
 			name = ARCemeteryNavigator;
 			packageProductDependencies = (
@@ -130,9 +170,6 @@
 			dependencies = (
 				C764CAE02F891E49005A4109 /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				C764CAE12F891E49005A4109 /* ARCemeteryNavigatorTests */,
-			);
 			name = ARCemeteryNavigatorTests;
 			packageProductDependencies = (
 			);
@@ -153,9 +190,6 @@
 			dependencies = (
 				C764CAEA2F891E49005A4109 /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				C764CAEB2F891E49005A4109 /* ARCemeteryNavigatorUITests */,
-			);
 			name = ARCemeteryNavigatorUITests;
 			packageProductDependencies = (
 			);
@@ -175,6 +209,7 @@
 				TargetAttributes = {
 					C764CAD02F891E47005A4109 = {
 						CreatedOnToolsVersion = 26.2;
+						LastSwiftMigration = 2620;
 					};
 					C764CADD2F891E49005A4109 = {
 						CreatedOnToolsVersion = 26.2;
@@ -212,6 +247,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C764CB102F891EA2005A4109 /* graves.json in Resources */,
+				C764CB112F891EA2005A4109 /* README.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -236,6 +273,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C764CB072F891EA2005A4109 /* LocationManager.swift in Sources */,
+				C764CB082F891EA2005A4109 /* MinimapViewController.swift in Sources */,
+				C764CB092F891EA2005A4109 /* SearchViewController.swift in Sources */,
+				C764CB0A2F891EA2005A4109 /* ViewController.swift in Sources */,
+				C764CB0B2F891EA2005A4109 /* ARCemeteryNavigatorApp.swift in Sources */,
+				C764CB0C2F891EA2005A4109 /* Models.swift in Sources */,
+				C764CB0D2F891EA2005A4109 /* ARSessionManager.swift in Sources */,
+				C764CB0E2F891EA2005A4109 /* GraveDataService.swift in Sources */,
+				C764CB0F2F891EA2005A4109 /* GraveInfoCard.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -393,10 +439,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WTBZC7Z268;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "AR Cemetery Navigator uses the camera to display augmented reality overlays.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Your location is used to position AR grave markers on the minimap.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -413,6 +463,8 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "ARCemeteryNavigator-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -424,10 +476,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WTBZC7Z268;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "AR Cemetery Navigator uses the camera to display augmented reality overlays.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Your location is used to position AR grave markers on the minimap.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -444,6 +500,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "ARCemeteryNavigator-Bridging-Header.h";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
