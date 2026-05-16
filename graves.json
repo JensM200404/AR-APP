@@ -1,13 +1,13 @@
 [
   {
     "id": "A-01-01",
-    "firstName": "Marie",
-    "lastName": "Dupont",
+    "firstName": "Albert",
+    "lastName": "Van Goethem",
     "birthYear": 1934,
     "deathYear": 2001,
     "biography": "Beloved teacher and community leader. Taught primary school for 35 years.",
-    "latitude": 51.235772294030035,
-    "longitude": 4.10025501508938,
+    "latitude": 51.219714793300874,
+    "longitude": 4.128121941455741,
     "section": "Section A",
     "row": 1,
     "plot": 1

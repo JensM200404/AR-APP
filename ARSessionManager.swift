@@ -1,7 +1,18 @@
+// ARSessionManager.swift
+// AR Cemetery Navigator – ARKit Session, AR Arrow & Grave Marker
+//
+// v7 changes:
+//   • Added setSceneOpacity(_:) — dims all AR nodes when tracking is
+//     unreliable, giving the user a clear visual signal that AR content
+//     should not be fully trusted. Opacity is restored when tracking
+//     returns to normal.
+
 import ARKit
 import SceneKit
 import CoreLocation
 import UIKit
+
+// MARK: - Delegate
 
 protocol ARSessionManagerDelegate: AnyObject {
     func arSessionManager(_ manager: ARSessionManager,
@@ -10,7 +21,11 @@ protocol ARSessionManagerDelegate: AnyObject {
                           didChangeTrackingState state: ARCamera.TrackingState)
 }
 
+// MARK: - ARSessionManager
+
 final class ARSessionManager: NSObject {
+
+    // MARK: Public
 
     weak var delegate: ARSessionManagerDelegate?
 
@@ -22,12 +37,18 @@ final class ARSessionManager: NSObject {
         return v
     }()
 
+    // MARK: Private – nodes
+
     private var arrowNode: SCNNode?
     private var graveMarkerNode: SCNNode?
+
+    // MARK: Private – state
 
     private var targetGrave: GraveRecord?
     private var graveWorldPosition: SIMD3<Float>?
     private var originCoordinate: CLLocationCoordinate2D?
+
+    // MARK: Private – session
 
     private let configuration: ARWorldTrackingConfiguration = {
         let c = ARWorldTrackingConfiguration()
@@ -36,11 +57,15 @@ final class ARSessionManager: NSObject {
         return c
     }()
 
+    // MARK: Init
+
     override init() {
         super.init()
         sceneView.delegate         = self
         sceneView.session.delegate = self
     }
+
+    // MARK: - Session
 
     func startSession() {
         sceneView.session.run(configuration,
@@ -50,6 +75,8 @@ final class ARSessionManager: NSObject {
     func pauseSession() {
         sceneView.session.pause()
     }
+
+    // MARK: - GPS origin
 
     func setOrigin(coordinate: CLLocationCoordinate2D) {
         guard originCoordinate == nil else { return }
@@ -61,6 +88,8 @@ final class ARSessionManager: NSObject {
             buildGraveMarker()
         }
     }
+
+    // MARK: - Navigation
 
     func startNavigation(to grave: GraveRecord) {
         stopNavigation()
@@ -80,36 +109,52 @@ final class ARSessionManager: NSObject {
         targetGrave = nil
     }
 
+    // MARK: - Opacity control
+    //
+    // Called by ViewController when tracking state changes.
+    // Dimming the AR nodes gives the user a clear visual signal
+    // that the content is unreliable without removing it entirely —
+    // the user can still see the approximate direction.
+
+    func setSceneOpacity(_ opacity: CGFloat) {
+        SCNTransaction.begin()
+        SCNTransaction.animationDuration = 0.4
+        arrowNode?.opacity       = opacity
+        graveMarkerNode?.opacity = opacity
+        SCNTransaction.commit()
+    }
+
+    // MARK: - Build: 3D Arrow
+
     private func buildArrow() {
         let root = SCNNode()
         root.name = "arrowRoot"
 
-        let body = SCNBox(width: 0.18,
-                          height: 0.06,
-                          length: 0.42,
-                          chamferRadius: 0.015)
+        // Schacht: platte balk langs de +Z-as
+        let body = SCNBox(width: 0.18, height: 0.06,
+                          length: 0.42, chamferRadius: 0.015)
         body.firstMaterial?.diffuse.contents  = UIColor.systemYellow
         body.firstMaterial?.emission.contents = UIColor.systemYellow.withAlphaComponent(0.55)
         body.firstMaterial?.lightingModel     = .phong
         let bodyNode = SCNNode(geometry: body)
-        bodyNode.position = SCNVector3(0, 0, 0)
 
-        let head = SCNPyramid(width: 0.38,
-                              height: 0.28,
-                              length: 0.38)
+        // Kop: brede piramide met punt langs +Z
+        let head = SCNPyramid(width: 0.38, height: 0.28, length: 0.38)
         head.firstMaterial?.diffuse.contents  = UIColor.systemYellow
         head.firstMaterial?.emission.contents = UIColor.systemYellow.withAlphaComponent(0.65)
         head.firstMaterial?.lightingModel     = .phong
         let headNode = SCNNode(geometry: head)
         headNode.eulerAngles = SCNVector3(-Float.pi / 2, 0, 0)
-        headNode.position = SCNVector3(0, 0, 0.21 + 0.14)
+        headNode.position    = SCNVector3(0, 0, 0.35)
 
+        // Schaduwschijf
         let shadow = SCNCylinder(radius: 0.22, height: 0.005)
         shadow.firstMaterial?.diffuse.contents = UIColor.black.withAlphaComponent(0.25)
         shadow.firstMaterial?.lightingModel    = .constant
         let shadowNode = SCNNode(geometry: shadow)
         shadowNode.position = SCNVector3(0, -0.04, 0.1)
 
+        // Pulserende animatie
         let pulse = CABasicAnimation(keyPath: "opacity")
         pulse.fromValue    = 1.0
         pulse.toValue      = 0.5
@@ -126,6 +171,8 @@ final class ARSessionManager: NSObject {
         arrowNode = root
     }
 
+    // MARK: - Build: Grave Marker
+
     private func buildGraveMarker() {
         graveMarkerNode?.removeFromParentNode()
         guard let pos = graveWorldPosition, let grave = targetGrave else { return }
@@ -133,6 +180,7 @@ final class ARSessionManager: NSObject {
         let root = SCNNode()
         root.position = SCNVector3(pos.x, 0, pos.z)
 
+        // Roterende kubus
         let cube = SCNBox(width: 0.4, height: 0.4, length: 0.4, chamferRadius: 0.04)
         cube.firstMaterial?.diffuse.contents  = UIColor.systemYellow
         cube.firstMaterial?.emission.contents = UIColor.systemYellow.withAlphaComponent(0.6)
@@ -141,12 +189,12 @@ final class ARSessionManager: NSObject {
         cubeNode.position = SCNVector3(0, 0.2, 0)
 
         let spin = CABasicAnimation(keyPath: "eulerAngles.y")
-        spin.fromValue   = 0
         spin.toValue     = Float.pi * 2
         spin.duration    = 4.0
         spin.repeatCount = .infinity
         cubeNode.addAnimation(spin, forKey: "spin")
 
+        // Verticale lichtbalk
         let beam = SCNCylinder(radius: 0.03, height: 6.0)
         beam.firstMaterial?.diffuse.contents  = UIColor.systemYellow.withAlphaComponent(0.3)
         beam.firstMaterial?.emission.contents = UIColor.systemYellow.withAlphaComponent(0.2)
@@ -154,6 +202,7 @@ final class ARSessionManager: NSObject {
         let beamNode = SCNNode(geometry: beam)
         beamNode.position = SCNVector3(0, 3.0, 0)
 
+        // Pulserende grondring
         let ring = SCNTorus(ringRadius: 0.6, pipeRadius: 0.03)
         ring.firstMaterial?.diffuse.contents  = UIColor.systemYellow.withAlphaComponent(0.5)
         ring.firstMaterial?.emission.contents = UIColor.systemYellow.withAlphaComponent(0.3)
@@ -168,6 +217,7 @@ final class ARSessionManager: NSObject {
         ringPulse.repeatCount  = .infinity
         ringNode.addAnimation(ringPulse, forKey: "ringPulse")
 
+        // Billboard naambord
         let bg = SCNPlane(width: 3.2, height: 1.2)
         bg.cornerRadius = 0.12
         bg.firstMaterial?.diffuse.contents = UIColor.black.withAlphaComponent(0.72)
@@ -212,6 +262,8 @@ final class ARSessionManager: NSObject {
         graveMarkerNode = root
     }
 
+    // MARK: - Per-frame arrow update
+
     private func updateArrow(cameraTransform: simd_float4x4) {
         guard let arrow = arrowNode else { return }
 
@@ -225,9 +277,7 @@ final class ARSessionManager: NSObject {
         let nx: Float = fwdLen > 0.001 ? fwdX / fwdLen : 0
         let nz: Float = fwdLen > 0.001 ? fwdZ / fwdLen : -1
 
-        arrow.position = SCNVector3(cx + nx * 1.8,
-                                    cy - 0.25,
-                                    cz + nz * 1.8)
+        arrow.position = SCNVector3(cx + nx * 1.8, cy - 0.25, cz + nz * 1.8)
 
         if let gravePos = graveWorldPosition {
             let dx = gravePos.x - arrow.position.x
@@ -235,6 +285,8 @@ final class ARSessionManager: NSObject {
             arrow.eulerAngles = SCNVector3(0, atan2(dx, dz), 0)
         }
     }
+
+    // MARK: - Coordinate math
 
     func worldOffset(from origin: CLLocationCoordinate2D,
                      to target: CLLocationCoordinate2D) -> (x: Float, z: Float) {
@@ -246,12 +298,16 @@ final class ARSessionManager: NSObject {
     }
 }
 
+// MARK: - ARSCNViewDelegate
+
 extension ARSessionManager: ARSCNViewDelegate {
     func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
         guard let frame = sceneView.session.currentFrame else { return }
         updateArrow(cameraTransform: frame.camera.transform)
     }
 }
+
+// MARK: - ARSessionDelegate
 
 extension ARSessionManager: ARSessionDelegate {
 

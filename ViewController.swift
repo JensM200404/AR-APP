@@ -1,3 +1,16 @@
+// ViewController.swift
+// AR Cemetery Navigator – Root View Controller
+//
+// v7 changes:
+//   • Automatic fallback banner when ARKit tracking degrades.
+//     When tracking is .limited for more than 3 seconds, a banner slides
+//     down suggesting the user open the map. The banner has a direct
+//     "Open kaart" button and a dismiss button.
+//   • AR node opacity is reduced to 0.4 when tracking is limited,
+//     signalling to the user that the AR content is unreliable.
+//   • When tracking returns to .normal, the banner auto-dismisses
+//     and node opacity is restored to 1.0.
+
 import UIKit
 import ARKit
 import CoreLocation
@@ -5,12 +18,16 @@ import Combine
 
 final class ViewController: UIViewController {
 
+    // MARK: - Components
+
     private let arManager       = ARSessionManager()
     private let locationManager = LocationManager()
     private let dataService     = GraveDataService()
     private let navState        = ARNavigationState()
     private let minimapVC       = MinimapViewController()
     private var cancellables    = Set<AnyCancellable>()
+
+    // MARK: - HUD subviews
 
     private let trackingStatusLabel: UILabel = {
         let lbl = UILabel()
@@ -68,14 +85,75 @@ final class ViewController: UIViewController {
         return v
     }()
 
+    // MARK: - Fallback banner
+    //
+    // Shown automatically when ARKit tracking is limited for > 3 seconds.
+    // Contains a message explaining the degraded state and a direct button
+    // to open the fullscreen map as a fallback navigation mode.
+
+    private let fallbackBanner: UIView = {
+        let v = UIView()
+        v.translatesAutoresizingMaskIntoConstraints = false
+        v.backgroundColor   = UIColor.systemOrange.withAlphaComponent(0.93)
+        v.layer.cornerRadius = 14
+        v.layer.masksToBounds = true
+        v.alpha   = 0
+        v.isHidden = true
+        return v
+    }()
+
+    private let fallbackMessageLabel: UILabel = {
+        let lbl = UILabel()
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        lbl.font          = .systemFont(ofSize: 13, weight: .semibold)
+        lbl.textColor     = .white
+        lbl.numberOfLines = 2
+        lbl.text          = "AR-tracking is instabiel.\nGebruik de kaart om verder te navigeren."
+        return lbl
+    }()
+
+    private let fallbackMapButton: UIButton = {
+        var cfg = UIButton.Configuration.filled()
+        cfg.title              = "Open kaart"
+        cfg.baseBackgroundColor = .white
+        cfg.baseForegroundColor = .systemOrange
+        cfg.cornerStyle        = .capsule
+        cfg.buttonSize         = .small
+        let btn = UIButton(configuration: cfg)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        return btn
+    }()
+
+    private let fallbackDismissButton: UIButton = {
+        let btn = UIButton(type: .system)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        btn.setImage(UIImage(systemName: "xmark.circle.fill",
+                             withConfiguration: UIImage.SymbolConfiguration(
+                                pointSize: 20)), for: .normal)
+        btn.tintColor = UIColor.white.withAlphaComponent(0.8)
+        return btn
+    }()
+
+    /// Tracks how long tracking has been limited, used to delay banner appearance.
+    private var trackingLimitedTimer: Timer?
+
+    /// Whether the banner has been manually dismissed by the user this session.
+    /// Prevents it from reappearing immediately after dismissal.
+    private var bannerManuallDismissed = false
+
+    // MARK: - Layout constants
+
     private let buttonSize:   CGFloat = 56
     private let buttonMargin: CGFloat = 20
+
+    // MARK: - Lifecycle
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupARView()
         setupMinimap()
         setupHUD()
+        setupFallbackBanner()
         setupActions()
         loadData()
     }
@@ -94,7 +172,9 @@ final class ViewController: UIViewController {
 
     override var prefersStatusBarHidden: Bool        { true }
     override var prefersHomeIndicatorAutoHidden: Bool { true }
-    
+
+    // MARK: - Setup
+
     private func setupARView() {
         arManager.delegate       = self
         locationManager.delegate = self
@@ -175,10 +255,113 @@ final class ViewController: UIViewController {
         infoCard.onDismiss = { [weak self] in self?.clearSelectedGrave() }
     }
 
+    // MARK: - Fallback banner setup
+
+    private func setupFallbackBanner() {
+        // Assemble banner subviews
+        fallbackBanner.addSubview(fallbackMessageLabel)
+        fallbackBanner.addSubview(fallbackMapButton)
+        fallbackBanner.addSubview(fallbackDismissButton)
+
+        NSLayoutConstraint.activate([
+            fallbackDismissButton.topAnchor.constraint(equalTo: fallbackBanner.topAnchor,
+                                                        constant: 10),
+            fallbackDismissButton.trailingAnchor.constraint(equalTo: fallbackBanner.trailingAnchor,
+                                                             constant: -10),
+            fallbackDismissButton.widthAnchor.constraint(equalToConstant: 28),
+            fallbackDismissButton.heightAnchor.constraint(equalToConstant: 28),
+
+            fallbackMessageLabel.topAnchor.constraint(equalTo: fallbackBanner.topAnchor,
+                                                       constant: 12),
+            fallbackMessageLabel.leadingAnchor.constraint(equalTo: fallbackBanner.leadingAnchor,
+                                                           constant: 14),
+            fallbackMessageLabel.trailingAnchor.constraint(equalTo: fallbackDismissButton.leadingAnchor,
+                                                            constant: -8),
+
+            fallbackMapButton.topAnchor.constraint(equalTo: fallbackMessageLabel.bottomAnchor,
+                                                    constant: 8),
+            fallbackMapButton.leadingAnchor.constraint(equalTo: fallbackBanner.leadingAnchor,
+                                                        constant: 14),
+            fallbackMapButton.bottomAnchor.constraint(equalTo: fallbackBanner.bottomAnchor,
+                                                       constant: -12)
+        ])
+
+        view.addSubview(fallbackBanner)
+        NSLayoutConstraint.activate([
+            fallbackBanner.topAnchor.constraint(
+                equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 50),
+            fallbackBanner.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            fallbackBanner.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
+        ])
+
+        fallbackMapButton.addTarget(self,
+                                    action: #selector(fallbackMapButtonTapped),
+                                    for: .touchUpInside)
+        fallbackDismissButton.addTarget(self,
+                                        action: #selector(fallbackDismissButtonTapped),
+                                        for: .touchUpInside)
+    }
+
     private func setupActions() {
         searchButton.addTarget(self, action: #selector(searchButtonTapped),
                                for: .touchUpInside)
     }
+
+    // MARK: - Fallback banner logic
+
+    /// Called when tracking becomes limited. Waits 3 seconds before showing
+    /// the banner, to avoid flashing it on every brief tracking hiccup.
+    private func startFallbackTimer() {
+        guard !bannerManuallDismissed else { return }
+        trackingLimitedTimer?.invalidate()
+        trackingLimitedTimer = Timer.scheduledTimer(withTimeInterval: 3.0,
+                                                     repeats: false) { [weak self] _ in
+            self?.showFallbackBanner()
+        }
+    }
+
+    private func cancelFallbackTimer() {
+        trackingLimitedTimer?.invalidate()
+        trackingLimitedTimer = nil
+    }
+
+    private func showFallbackBanner() {
+        guard fallbackBanner.alpha == 0 else { return }
+        fallbackBanner.isHidden = false
+        fallbackBanner.transform = CGAffineTransform(translationX: 0, y: -20)
+        UIView.animate(withDuration: 0.35, delay: 0,
+                       usingSpringWithDamping: 0.8,
+                       initialSpringVelocity: 0.3) {
+            self.fallbackBanner.alpha = 1
+            self.fallbackBanner.transform = .identity
+        }
+        // Dim AR nodes to signal unreliability
+        arManager.setSceneOpacity(0.4)
+    }
+
+    private func hideFallbackBanner() {
+        UIView.animate(withDuration: 0.25) {
+            self.fallbackBanner.alpha = 0
+            self.fallbackBanner.transform = CGAffineTransform(translationX: 0, y: -10)
+        } completion: { _ in
+            self.fallbackBanner.isHidden = true
+        }
+        // Restore AR node opacity
+        arManager.setSceneOpacity(1.0)
+    }
+
+    @objc private func fallbackMapButtonTapped() {
+        hideFallbackBanner()
+        bannerManuallDismissed = true
+        minimapVC.enterFullscreen()
+    }
+
+    @objc private func fallbackDismissButtonTapped() {
+        hideFallbackBanner()
+        bannerManuallDismissed = true
+    }
+
+    // MARK: - Data
 
     private func loadData() {
         Task { @MainActor in
@@ -189,6 +372,8 @@ final class ViewController: UIViewController {
             }
         }
     }
+
+    // MARK: - Search
 
     @objc private func searchButtonTapped() {
         let vc = SearchViewController()
@@ -203,17 +388,18 @@ final class ViewController: UIViewController {
         present(nav, animated: true)
     }
 
+    // MARK: - Navigation
+
     func navigateTo(grave: GraveRecord) {
         navState.selectedGrave  = grave
         minimapVC.selectedGrave = grave
-
         arManager.startNavigation(to: grave)
-
         updateDistanceLabel(for: grave)
-
         infoCard.configure(with: grave)
         showInfoCard()
         minimapVC.centreMap(on: grave.coordinate, span: 0.0005)
+        // Reset manual dismiss so banner can show again for new navigation
+        bannerManuallDismissed = false
     }
 
     private func clearSelectedGrave() {
@@ -223,7 +409,11 @@ final class ViewController: UIViewController {
         arManager.stopNavigation()
         distanceLabel.isHidden = true
         hideInfoCard()
+        hideFallbackBanner()
+        cancelFallbackTimer()
     }
+
+    // MARK: - Distance label
 
     private func updateDistanceLabel(for grave: GraveRecord) {
         guard let dist = locationManager.distance(to: grave) else { return }
@@ -234,6 +424,8 @@ final class ViewController: UIViewController {
         distanceLabel.text    = text
         distanceLabel.isHidden = false
     }
+
+    // MARK: - Info card
 
     private func showInfoCard() {
         infoCard.isHidden  = false
@@ -252,6 +444,8 @@ final class ViewController: UIViewController {
         } completion: { _ in self.infoCard.isHidden = true }
     }
 
+    // MARK: - Errors
+
     private func showErrorAlert(message: String) {
         let a = UIAlertController(title: "Error", message: message, preferredStyle: .alert)
         a.addAction(UIAlertAction(title: "OK", style: .default))
@@ -259,34 +453,56 @@ final class ViewController: UIViewController {
     }
 }
 
+// MARK: - ARSessionManagerDelegate
+
 extension ViewController: ARSessionManagerDelegate {
 
     func arSessionManager(_ manager: ARSessionManager, didUpdateFrame frame: ARFrame) {}
 
     func arSessionManager(_ manager: ARSessionManager,
                           didChangeTrackingState state: ARCamera.TrackingState) {
-        DispatchQueue.main.async { self.updateTrackingLabel(for: state) }
+        DispatchQueue.main.async { self.handleTrackingStateChange(state) }
     }
 
-    private func updateTrackingLabel(for state: ARCamera.TrackingState) {
+    private func handleTrackingStateChange(_ state: ARCamera.TrackingState) {
         switch state {
         case .notAvailable:
             trackingStatusLabel.text = "AR Unavailable"
             trackingStatusLabel.backgroundColor = UIColor.systemRed.withAlphaComponent(0.7)
+            // Start fallback timer immediately when AR is completely unavailable
+            if navState.selectedGrave != nil { startFallbackTimer() }
+
         case .limited(let reason):
             let msg: String
             switch reason {
-            case .initializing:         msg = "Initialising…"
-            case .insufficientFeatures: msg = "Insufficient Features"
-            case .excessiveMotion:      msg = "Slow Down"
-            case .relocalizing:         msg = "Relocalising…"
-            @unknown default:           msg = "Limited Tracking"
+            case .initializing:
+                msg = "Initialising…"
+                // Do not show fallback during normal startup
+            case .insufficientFeatures:
+                msg = "Insufficient Features"
+                if navState.selectedGrave != nil { startFallbackTimer() }
+            case .excessiveMotion:
+                msg = "Slow Down"
+                // Excessive motion is brief, no fallback needed
+            case .relocalizing:
+                msg = "Relocalising…"
+                if navState.selectedGrave != nil { startFallbackTimer() }
+            @unknown default:
+                msg = "Limited Tracking"
+                if navState.selectedGrave != nil { startFallbackTimer() }
             }
             trackingStatusLabel.text = msg
             trackingStatusLabel.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.7)
+            trackingStatusLabel.alpha = 1
+
         case .normal:
             trackingStatusLabel.text = "AR Active ✓"
             trackingStatusLabel.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.7)
+            // Cancel any pending fallback timer and hide the banner
+            cancelFallbackTimer()
+            hideFallbackBanner()
+            // Reset manual dismiss flag so future degradation can show banner
+            bannerManuallDismissed = false
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                 UIView.animate(withDuration: 0.5) { self.trackingStatusLabel.alpha = 0.3 }
             }
@@ -294,20 +510,19 @@ extension ViewController: ARSessionManagerDelegate {
     }
 }
 
+// MARK: - LocationManagerDelegate
+
 extension ViewController: LocationManagerDelegate {
 
     func locationManager(_ manager: LocationManager,
                          didUpdateLocation location: CLLocation) {
         navState.userLocation = location
-        
         if location.horizontalAccuracy < 20 {
             arManager.setOrigin(coordinate: location.coordinate)
         }
-        
         if let grave = navState.selectedGrave {
             updateDistanceLabel(for: grave)
         }
-
         if !minimapVC.isFullscreen {
             minimapVC.centreMap(on: location.coordinate, span: 0.001)
         }
@@ -323,12 +538,16 @@ extension ViewController: LocationManagerDelegate {
     }
 }
 
+// MARK: - SearchViewControllerDelegate
+
 extension ViewController: SearchViewControllerDelegate {
     func searchViewController(_ vc: SearchViewController,
                                didSelectGrave grave: GraveRecord) {
         navigateTo(grave: grave)
     }
 }
+
+// MARK: - MinimapViewControllerDelegate
 
 extension ViewController: MinimapViewControllerDelegate {
     func minimapViewController(_ vc: MinimapViewController,
