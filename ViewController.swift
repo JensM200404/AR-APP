@@ -1,16 +1,3 @@
-// ViewController.swift
-// AR Cemetery Navigator – Root View Controller
-//
-// v7 changes:
-//   • Automatic fallback banner when ARKit tracking degrades.
-//     When tracking is .limited for more than 3 seconds, a banner slides
-//     down suggesting the user open the map. The banner has a direct
-//     "Open kaart" button and a dismiss button.
-//   • AR node opacity is reduced to 0.4 when tracking is limited,
-//     signalling to the user that the AR content is unreliable.
-//   • When tracking returns to .normal, the banner auto-dismisses
-//     and node opacity is restored to 1.0.
-
 import UIKit
 import ARKit
 import CoreLocation
@@ -141,6 +128,85 @@ final class ViewController: UIViewController {
     /// Prevents it from reappearing immediately after dismissal.
     private var bannerManuallDismissed = false
 
+    // MARK: - Onboarding overlay
+    //
+    // Shown once, on first launch, when no grave has been selected yet.
+    // Tells first-time users that the app navigates through the camera —
+    // testing showed newcomers stayed on the minimap and never raised the
+    // phone. Kept deliberately quiet and respectful for the cemetery setting:
+    // no sound, no looping animation, just a single soft fade-in. Dismissal
+    // is remembered in UserDefaults so it never interrupts a returning visitor.
+
+    /// Bump the suffix if the onboarding copy/flow changes enough to warrant
+    /// re-showing it to everyone.
+    private static let onboardingSeenKey = "hasSeenAROnboarding_v1"
+
+    private let onboardingOverlay: UIView = {
+        let v = UIView()
+        v.translatesAutoresizingMaskIntoConstraints = false
+        v.backgroundColor = UIColor.black.withAlphaComponent(0.55)
+        v.alpha    = 0
+        v.isHidden = true
+        return v
+    }()
+
+    private let onboardingCard: UIView = {
+        let v = UIView()
+        v.translatesAutoresizingMaskIntoConstraints = false
+        v.backgroundColor     = UIColor(white: 0.12, alpha: 0.97)
+        v.layer.cornerRadius  = 18
+        v.layer.masksToBounds = true
+        return v
+    }()
+
+    private let onboardingIcon: UIImageView = {
+        let iv = UIImageView()
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        iv.contentMode = .scaleAspectFit
+        iv.tintColor   = .white
+        iv.image = UIImage(systemName: "camera.viewfinder",
+                           withConfiguration: UIImage.SymbolConfiguration(
+                               pointSize: 38, weight: .regular))
+        return iv
+    }()
+
+    private let onboardingTitleLabel: UILabel = {
+        let lbl = UILabel()
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        lbl.font          = .systemFont(ofSize: 17, weight: .semibold)
+        lbl.textColor     = .white
+        lbl.textAlignment = .center
+        lbl.numberOfLines = 1
+        // --- User-facing copy (Dutch, matching the fallback banner) ---
+        lbl.text = "Navigeer met de camera"
+        return lbl
+    }()
+
+    private let onboardingBodyLabel: UILabel = {
+        let lbl = UILabel()
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        lbl.font          = .systemFont(ofSize: 14, weight: .regular)
+        lbl.textColor     = UIColor.white.withAlphaComponent(0.85)
+        lbl.textAlignment = .center
+        lbl.numberOfLines = 0
+        // --- User-facing copy (Dutch, matching the fallback banner) ---
+        lbl.text = "Houd je telefoon rechtop en richt de camera voor je. "
+                 + "Een pijl en het grafpunt verschijnen dan in beeld en wijzen je de weg. "
+                 + "De kaart linksonder blijft altijd beschikbaar."
+        return lbl
+    }()
+
+    private let onboardingButton: UIButton = {
+        var cfg = UIButton.Configuration.filled()
+        cfg.title               = "Begrepen"
+        cfg.baseBackgroundColor = .systemYellow
+        cfg.baseForegroundColor = .black
+        cfg.cornerStyle         = .capsule
+        let btn = UIButton(configuration: cfg)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        return btn
+    }()
+
     // MARK: - Layout constants
 
     private let buttonSize:   CGFloat = 56
@@ -154,6 +220,7 @@ final class ViewController: UIViewController {
         setupMinimap()
         setupHUD()
         setupFallbackBanner()
+        setupOnboardingOverlay()
         setupActions()
         loadData()
     }
@@ -162,6 +229,11 @@ final class ViewController: UIViewController {
         super.viewWillAppear(animated)
         arManager.startSession()
         locationManager.startUpdating()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        showOnboardingIfNeeded()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -359,6 +431,87 @@ final class ViewController: UIViewController {
     @objc private func fallbackDismissButtonTapped() {
         hideFallbackBanner()
         bannerManuallDismissed = true
+    }
+
+    // MARK: - Onboarding overlay setup
+
+    private func setupOnboardingOverlay() {
+        onboardingCard.addSubview(onboardingIcon)
+        onboardingCard.addSubview(onboardingTitleLabel)
+        onboardingCard.addSubview(onboardingBodyLabel)
+        onboardingCard.addSubview(onboardingButton)
+        onboardingOverlay.addSubview(onboardingCard)
+        view.addSubview(onboardingOverlay)
+
+        NSLayoutConstraint.activate([
+            onboardingOverlay.topAnchor.constraint(equalTo: view.topAnchor),
+            onboardingOverlay.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            onboardingOverlay.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            onboardingOverlay.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            onboardingCard.centerXAnchor.constraint(equalTo: onboardingOverlay.centerXAnchor),
+            onboardingCard.centerYAnchor.constraint(equalTo: onboardingOverlay.centerYAnchor),
+            onboardingCard.leadingAnchor.constraint(greaterThanOrEqualTo: onboardingOverlay.leadingAnchor,
+                                                    constant: 32),
+            onboardingCard.trailingAnchor.constraint(lessThanOrEqualTo: onboardingOverlay.trailingAnchor,
+                                                     constant: -32),
+            onboardingCard.widthAnchor.constraint(lessThanOrEqualToConstant: 320),
+
+            onboardingIcon.topAnchor.constraint(equalTo: onboardingCard.topAnchor, constant: 26),
+            onboardingIcon.centerXAnchor.constraint(equalTo: onboardingCard.centerXAnchor),
+            onboardingIcon.heightAnchor.constraint(equalToConstant: 44),
+
+            onboardingTitleLabel.topAnchor.constraint(equalTo: onboardingIcon.bottomAnchor, constant: 14),
+            onboardingTitleLabel.leadingAnchor.constraint(equalTo: onboardingCard.leadingAnchor, constant: 22),
+            onboardingTitleLabel.trailingAnchor.constraint(equalTo: onboardingCard.trailingAnchor, constant: -22),
+
+            onboardingBodyLabel.topAnchor.constraint(equalTo: onboardingTitleLabel.bottomAnchor, constant: 10),
+            onboardingBodyLabel.leadingAnchor.constraint(equalTo: onboardingCard.leadingAnchor, constant: 22),
+            onboardingBodyLabel.trailingAnchor.constraint(equalTo: onboardingCard.trailingAnchor, constant: -22),
+
+            onboardingButton.topAnchor.constraint(equalTo: onboardingBodyLabel.bottomAnchor, constant: 20),
+            onboardingButton.leadingAnchor.constraint(equalTo: onboardingCard.leadingAnchor, constant: 22),
+            onboardingButton.trailingAnchor.constraint(equalTo: onboardingCard.trailingAnchor, constant: -22),
+            onboardingButton.heightAnchor.constraint(equalToConstant: 44),
+            onboardingButton.bottomAnchor.constraint(equalTo: onboardingCard.bottomAnchor, constant: -20)
+        ])
+
+        onboardingButton.addTarget(self, action: #selector(dismissOnboarding),
+                                   for: .touchUpInside)
+
+        // Tapping the dimmed backdrop also dismisses, matching the gentle tone.
+        // cancelsTouchesInView = false so the button still receives its tap.
+        let tap = UITapGestureRecognizer(target: self, action: #selector(dismissOnboarding))
+        tap.cancelsTouchesInView = false
+        onboardingOverlay.addGestureRecognizer(tap)
+    }
+
+    // MARK: - Onboarding overlay logic
+
+    /// Fades the overlay in only on first launch, and only while nothing is
+    /// being navigated to. Once dismissed it is remembered and never shown again.
+    private func showOnboardingIfNeeded() {
+        let alreadySeen = UserDefaults.standard.bool(forKey: Self.onboardingSeenKey)
+        guard !alreadySeen,
+              navState.selectedGrave == nil,
+              onboardingOverlay.isHidden
+        else { return }
+
+        onboardingOverlay.alpha    = 0
+        onboardingOverlay.isHidden = false
+        UIView.animate(withDuration: 0.3) {
+            self.onboardingOverlay.alpha = 1
+        }
+    }
+
+    @objc private func dismissOnboarding() {
+        guard !onboardingOverlay.isHidden else { return }
+        UserDefaults.standard.set(true, forKey: Self.onboardingSeenKey)
+        UIView.animate(withDuration: 0.25, animations: {
+            self.onboardingOverlay.alpha = 0
+        }, completion: { _ in
+            self.onboardingOverlay.isHidden = true
+        })
     }
 
     // MARK: - Data
