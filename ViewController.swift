@@ -207,6 +207,51 @@ final class ViewController: UIViewController {
         return btn
     }()
 
+    // MARK: - Raise-phone hint
+    //
+    // A small, discreet nudge shown only while navigating, when the phone is
+    // tilted down far enough that the (flat, ground-level) AR arrow isn't
+    // really in view — e.g. the user is looking at the phone like a map and
+    // hasn't realised to hold it up. Detected from the AR camera's forward
+    // vector in didUpdateFrame, with hysteresis to avoid flicker. Hidden the
+    // moment the phone is raised toward the horizon. Quiet by design: a soft
+    // fade and a tiny slow chevron bob, no sound.
+
+    /// Pure-logic flag (no UIKit) updated off the main thread from frame data.
+    private var phoneLikelyDown = false
+
+    private let raisePhoneHint: UIView = {
+        let v = UIView()
+        v.translatesAutoresizingMaskIntoConstraints = false
+        v.backgroundColor     = UIColor.black.withAlphaComponent(0.6)
+        v.layer.cornerRadius  = 17
+        v.layer.masksToBounds = true
+        v.alpha    = 0
+        v.isHidden = true
+        return v
+    }()
+
+    private let raisePhoneChevron: UIImageView = {
+        let iv = UIImageView()
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        iv.contentMode = .scaleAspectFit
+        iv.tintColor   = .white
+        iv.image = UIImage(systemName: "chevron.up",
+                           withConfiguration: UIImage.SymbolConfiguration(
+                               pointSize: 15, weight: .semibold))
+        return iv
+    }()
+
+    private let raisePhoneLabel: UILabel = {
+        let lbl = UILabel()
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        lbl.font      = .systemFont(ofSize: 13, weight: .semibold)
+        lbl.textColor = .white
+        // --- User-facing copy (Dutch, matching the other prompts) ---
+        lbl.text = "Houd je telefoon omhoog"
+        return lbl
+    }()
+
     // MARK: - Layout constants
 
     private let buttonSize:   CGFloat = 56
@@ -220,6 +265,7 @@ final class ViewController: UIViewController {
         setupMinimap()
         setupHUD()
         setupFallbackBanner()
+        setupRaisePhoneHint()
         setupOnboardingOverlay()
         setupActions()
         loadData()
@@ -409,6 +455,7 @@ final class ViewController: UIViewController {
         }
         // Dim AR nodes to signal unreliability
         arManager.setSceneOpacity(0.4)
+        updateRaisePhoneHint()   // don't stack with the banner
     }
 
     private func hideFallbackBanner() {
@@ -420,6 +467,7 @@ final class ViewController: UIViewController {
         }
         // Restore AR node opacity
         arManager.setSceneOpacity(1.0)
+        updateRaisePhoneHint()   // banner gone -> hint may apply again
     }
 
     @objc private func fallbackMapButtonTapped() {
@@ -511,7 +559,73 @@ final class ViewController: UIViewController {
             self.onboardingOverlay.alpha = 0
         }, completion: { _ in
             self.onboardingOverlay.isHidden = true
+            self.updateRaisePhoneHint()
         })
+    }
+
+    // MARK: - Raise-phone hint setup
+
+    private func setupRaisePhoneHint() {
+        raisePhoneHint.addSubview(raisePhoneChevron)
+        raisePhoneHint.addSubview(raisePhoneLabel)
+        view.addSubview(raisePhoneHint)
+
+        NSLayoutConstraint.activate([
+            raisePhoneHint.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            raisePhoneHint.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -30),
+            raisePhoneHint.heightAnchor.constraint(equalToConstant: 34),
+
+            raisePhoneChevron.leadingAnchor.constraint(equalTo: raisePhoneHint.leadingAnchor, constant: 12),
+            raisePhoneChevron.centerYAnchor.constraint(equalTo: raisePhoneHint.centerYAnchor),
+            raisePhoneChevron.widthAnchor.constraint(equalToConstant: 16),
+
+            raisePhoneLabel.leadingAnchor.constraint(equalTo: raisePhoneChevron.trailingAnchor, constant: 7),
+            raisePhoneLabel.trailingAnchor.constraint(equalTo: raisePhoneHint.trailingAnchor, constant: -14),
+            raisePhoneLabel.centerYAnchor.constraint(equalTo: raisePhoneHint.centerYAnchor)
+        ])
+    }
+
+    // MARK: - Raise-phone hint logic
+
+    /// Re-evaluates whether the hint should be visible given the current pitch
+    /// flag and context. Safe to call from anywhere on the main thread.
+    private func updateRaisePhoneHint() {
+        let shouldShow = phoneLikelyDown
+            && navState.selectedGrave != nil   // only relevant when there's AR to see
+            && onboardingOverlay.isHidden       // don't stack on the onboarding card
+            && fallbackBanner.isHidden          // don't stack on the fallback banner
+        setRaisePhoneHint(visible: shouldShow)
+    }
+
+    private func setRaisePhoneHint(visible: Bool) {
+        if visible {
+            guard raisePhoneHint.isHidden else { return }
+            raisePhoneHint.isHidden = false
+            raisePhoneHint.alpha    = 0
+            UIView.animate(withDuration: 0.3) { self.raisePhoneHint.alpha = 1 }
+            startChevronBob()
+        } else {
+            guard !raisePhoneHint.isHidden else { return }
+            UIView.animate(withDuration: 0.25, animations: {
+                self.raisePhoneHint.alpha = 0
+            }, completion: { _ in
+                self.raisePhoneHint.isHidden = true
+                self.raisePhoneChevron.layer.removeAnimation(forKey: "bob")
+            })
+        }
+    }
+
+    /// Subtle, slow upward bob to reinforce the "raise" message without being
+    /// flashy — appropriate for the cemetery setting.
+    private func startChevronBob() {
+        guard raisePhoneChevron.layer.animation(forKey: "bob") == nil else { return }
+        let bob = CABasicAnimation(keyPath: "transform.translation.y")
+        bob.fromValue    = 0
+        bob.toValue      = -4
+        bob.duration     = 0.9
+        bob.autoreverses = true
+        bob.repeatCount  = .infinity
+        raisePhoneChevron.layer.add(bob, forKey: "bob")
     }
 
     // MARK: - Data
@@ -564,6 +678,7 @@ final class ViewController: UIViewController {
         hideInfoCard()
         hideFallbackBanner()
         cancelFallbackTimer()
+        updateRaisePhoneHint()   // no target -> hint hides
     }
 
     // MARK: - Distance label
@@ -610,7 +725,17 @@ final class ViewController: UIViewController {
 
 extension ViewController: ARSessionManagerDelegate {
 
-    func arSessionManager(_ manager: ARSessionManager, didUpdateFrame frame: ARFrame) {}
+    func arSessionManager(_ manager: ARSessionManager, didUpdateFrame frame: ARFrame) {
+        // Camera "look" direction is -Z of its transform. Its vertical component
+        // tells us the pitch: ~0 when looking at the horizon, strongly negative
+        // when looking down (phone held like a map). Hysteresis prevents the
+        // hint from flickering around the threshold.
+        let lookY = -frame.camera.transform.columns.2.y
+        let nowDown = phoneLikelyDown ? (lookY < -0.35) : (lookY < -0.55)
+        guard nowDown != phoneLikelyDown else { return }
+        phoneLikelyDown = nowDown
+        DispatchQueue.main.async { [weak self] in self?.updateRaisePhoneHint() }
+    }
 
     func arSessionManager(_ manager: ARSessionManager,
                           didChangeTrackingState state: ARCamera.TrackingState) {

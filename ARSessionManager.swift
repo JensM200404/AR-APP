@@ -1,6 +1,14 @@
 // ARSessionManager.swift
 // AR Cemetery Navigator – ARKit Session, AR Arrow & Grave Marker
 //
+// v8 changes:
+//   • Redesigned the navigation arrow geometry. The old composite (flat
+//     SCNBox shaft + rotated SCNPyramid head) read poorly as an arrow in
+//     testing. It is now a single extruded SCNShape built from a 2D arrow
+//     silhouette (pointed head + shaft + notched chevron tail), kept 3D via
+//     extrusionDepth. The "pulse" animation and the per-frame updateArrow()
+//     rotation logic are unchanged — the arrow still points along local +Z.
+//
 // v7 changes:
 //   • Added setSceneOpacity(_:) — dims all AR nodes when tracking is
 //     unreliable, giving the user a clear visual signal that AR content
@@ -125,34 +133,50 @@ final class ARSessionManager: NSObject {
     }
 
     // MARK: - Build: 3D Arrow
+    //
+    // v8: The arrow is now a single extruded SCNShape built from a 2D arrow
+    // silhouette (pointed head + shaft + notched chevron tail). Testers found
+    // the old box-shaft + pyramid-head composite hard to read as an arrow; a
+    // solid, Google-Maps-style profile is unmistakable while still being 3D.
+    //
+    // Orientation contract (unchanged from before): the arrow must point along
+    // its local +Z so that updateArrow(...) — which sets the *root* node's
+    // Y-euler to aim at the grave — keeps working as-is. The fixed "lay-flat
+    // and tilt up" orientation therefore lives on a CHILD node, because the
+    // root's eulerAngles are overwritten every frame.
 
     private func buildArrow() {
         let root = SCNNode()
         root.name = "arrowRoot"
 
-        // Schacht: platte balk langs de +Z-as
-        let body = SCNBox(width: 0.18, height: 0.06,
-                          length: 0.42, chamferRadius: 0.015)
-        body.firstMaterial?.diffuse.contents  = UIColor.systemYellow
-        body.firstMaterial?.emission.contents = UIColor.systemYellow.withAlphaComponent(0.55)
-        body.firstMaterial?.lightingModel     = .phong
-        let bodyNode = SCNNode(geometry: body)
+        // --- Geometry: extruded 2D arrow profile ---
+        let depth: CGFloat = 0.08
+        let shape = SCNShape(path: arrowProfilePath(), extrusionDepth: depth)
+        shape.chamferRadius = 0.012
+        let mat = SCNMaterial()
+        mat.diffuse.contents  = UIColor.systemYellow
+        mat.emission.contents = UIColor.systemYellow.withAlphaComponent(0.6)
+        mat.lightingModel     = .phong
+        mat.isDoubleSided     = true          // visible from both faces when tilted
+        shape.firstMaterial   = mat
 
-        // Kop: brede piramide met punt langs +Z
-        let head = SCNPyramid(width: 0.38, height: 0.28, length: 0.38)
-        head.firstMaterial?.diffuse.contents  = UIColor.systemYellow
-        head.firstMaterial?.emission.contents = UIColor.systemYellow.withAlphaComponent(0.65)
-        head.firstMaterial?.lightingModel     = .phong
-        let headNode = SCNNode(geometry: head)
-        headNode.eulerAngles = SCNVector3(-Float.pi / 2, 0, 0)
-        headNode.position    = SCNVector3(0, 0, 0.35)
+        // The profile is drawn in the XY plane pointing +Y and extruded along
+        // +Z. Lay it flat so the arrow points along +Z, parallel to the ground.
+        let layFlat: Float = .pi / 2          // +Y(profile) -> +Z(world): points forward
+        let liftUp: Float  = 0                // flat: no upward tilt of the tip
+        let shapeNode = SCNNode(geometry: shape)
+        shapeNode.eulerAngles = SCNVector3(layFlat - liftUp, 0, 0)
+        shapeNode.scale       = SCNVector3(1.3, 1.3, 1.3)   // bold, easy to spot
+        // Centre the extrusion thickness on the node origin.
+        shapeNode.pivot       = SCNMatrix4MakeTranslation(0, 0, Float(depth / 2))
+        shapeNode.position    = SCNVector3(0, 0.02, 0)
 
         // Schaduwschijf
-        let shadow = SCNCylinder(radius: 0.22, height: 0.005)
+        let shadow = SCNCylinder(radius: 0.24, height: 0.005)
         shadow.firstMaterial?.diffuse.contents = UIColor.black.withAlphaComponent(0.25)
         shadow.firstMaterial?.lightingModel    = .constant
         let shadowNode = SCNNode(geometry: shadow)
-        shadowNode.position = SCNVector3(0, -0.04, 0.1)
+        shadowNode.position = SCNVector3(0, -0.06, 0.05)
 
         // Pulserende animatie
         let pulse = CABasicAnimation(keyPath: "opacity")
@@ -164,11 +188,27 @@ final class ARSessionManager: NSObject {
         root.addAnimation(pulse, forKey: "pulse")
 
         root.addChildNode(shadowNode)
-        root.addChildNode(bodyNode)
-        root.addChildNode(headNode)
+        root.addChildNode(shapeNode)
 
         sceneView.scene.rootNode.addChildNode(root)
         arrowNode = root
+    }
+
+    /// Closed 2D outline of a navigation arrow, drawn in the XY plane pointing
+    /// along +Y and centred on the origin. Head + straight shaft + a concave
+    /// chevron notch at the tail give it an immediately recognisable arrow read.
+    private func arrowProfilePath() -> UIBezierPath {
+        let p = UIBezierPath()
+        p.move(to:    CGPoint(x:  0.00, y:  0.34))   // tip
+        p.addLine(to: CGPoint(x: -0.22, y:  0.06))   // left head wing
+        p.addLine(to: CGPoint(x: -0.09, y:  0.06))   // left shaft (top)
+        p.addLine(to: CGPoint(x: -0.09, y: -0.30))   // left shaft (bottom)
+        p.addLine(to: CGPoint(x:  0.00, y: -0.20))   // tail notch (concave)
+        p.addLine(to: CGPoint(x:  0.09, y: -0.30))   // right shaft (bottom)
+        p.addLine(to: CGPoint(x:  0.09, y:  0.06))   // right shaft (top)
+        p.addLine(to: CGPoint(x:  0.22, y:  0.06))   // right head wing
+        p.close()                                    // back to tip
+        return p
     }
 
     // MARK: - Build: Grave Marker
